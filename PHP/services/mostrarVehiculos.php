@@ -1,0 +1,56 @@
+<?php
+require '../../SQL/db.php';
+require 'utilidades.php';
+
+try {
+    $apikey = Utilities::validateMandatoryParameter($_GET, 'apikey');
+
+    $database = new Database();
+    $conn = $database->getConnection();
+
+    $dniUsuario = Utilities::obtenerDniUsuario($conn, $apikey);
+
+    if ($dniUsuario === null) {
+        throw new Exception("El usuario no existe en la base de datos");
+    } else {
+        $sql = $conn->prepare("
+            SELECT VIN, matricula, fechaObtencion, nombreModelo
+            FROM Vehiculo
+            WHERE DNIUsuario = ?
+            ORDER BY fechaObtencion DESC
+        ");
+        $sql->bind_param("s", $dniUsuario);
+
+        if ($sql->execute()) {
+            $result = $sql->get_result();
+
+            echo "<table border='1' cellpadding='8' cellspacing='0'>";
+            echo "<tr>
+                    <th>VIN</th>
+                    <th>Matrícula</th>
+                    <th>Fecha de Obtención</th>
+                    <th>Modelo</th>
+                  </tr>";
+
+            if ($result->num_rows > 0) {
+                while ($row = $result->fetch_assoc()) {
+                    echo "<tr>
+                            <td>{$row['VIN']}</td>
+                            <td>{$row['matricula']}</td>
+                            <td>{$row['fechaObtencion']}</td>
+                            <td>{$row['nombreModelo']}</td>
+                          </tr>";
+                }
+            } else {
+                echo "<tr><td colspan='4'>No se encontraron vehículos para este usuario.</td></tr>";
+            }
+        } else {
+            throw new Exception("Error al consultar los vehículos. Consulte con el servicio técnico.");
+        }
+
+        $sql->close();
+    }
+} catch (Exception $e) {
+    $respuestaHTML = "<p>ERROR AL MOSTRAR LOS VEHÍCULOS: {$e->getMessage()} </p>";
+    echo $respuestaHTML;
+}
